@@ -14,9 +14,10 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 # Keep your IP addresses
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
-    default='127.0.0.1,localhost,192.168.1.161,192.168.1.149',
+    default='127.0.0.1,localhost,192.168.1.161,192.168.1.149,attendance-system-zc6w.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
+
 
 # Application definition
 INSTALLED_APPS = [
