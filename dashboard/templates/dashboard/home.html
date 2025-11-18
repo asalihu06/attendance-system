@@ -1,0 +1,166 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="container mt-4">
+  <h2 class="mb-4 text-dark">Dashboard Overview</h2>
+
+  <!-- Summary Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title">Total Staff</h5>
+          <p id="total-staff" class="fs-4 fw-bold text-primary">{{ total_staff }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title">Today's Attendance</h5>
+          <p id="todays-attendance" class="fs-4 fw-bold text-secondary">{{ todays_attendance }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title text-success">Signed In</h5>
+          <p id="signed-in" class="fs-4 fw-bold text-success">{{ signed_in_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm border-0">
+        <div class="card-body">
+          <h5 class="card-title text-danger">Signed Out</h5>
+          <p id="signed-out" class="fs-4 fw-bold text-danger">{{ signed_out_count }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Absent Card -->
+    <div class="col-md-3 col-sm-6">
+      <div class="card text-center shadow-sm border-0 bg-light">
+        <div class="card-body">
+          <h5 class="card-title text-warning">Absent Today</h5>
+          <p id="absent-count" class="fs-4 fw-bold text-warning">{{ absent_count }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Attendance Table -->
+  <div class="card shadow-sm p-3 mt-4">
+    <h5 class="mb-3 text-dark">Today's Attendance ({{ today|date:"M d, Y" }})</h5>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Staff Name</th>
+            <th>Staff ID</th>
+            <th>Department</th>
+            <th>Position</th>
+            <th>Time In</th>
+            <th>Time Out</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in attendance_records %}
+          <tr class="{% if record.status == 'Absent' %}table-danger{% endif %}">
+            <td>{{ record.staff.name }}</td>
+            <td>{{ record.staff.staff_id }}</td>
+            <td>{{ record.staff.department }}</td>
+            <td>{{ record.staff.position }}</td>
+            <td>{{ record.time_in|default:"-" }}</td>
+            <td>{{ record.time_out|default:"-" }}</td>
+            <td>
+              <span class="badge 
+                {% if record.status == 'On Time' %}bg-success
+                {% elif record.status == 'Late' %}bg-warning
+                {% elif record.status == 'Signed Out' %}bg-info
+                {% else %}bg-danger{% endif %}">
+                {{ record.status }}
+              </span>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center">No attendance recorded today.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Attendance Trend -->
+  <div class="card shadow-sm p-4 mt-4">
+    <h5 class="mb-3 text-dark">Attendance Trend (Last 5 Working Days)</h5>
+    <canvas id="trendChart" height="100"></canvas>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if labels and attendance_counts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const ctx = document.getElementById('trendChart');
+  if (!ctx) return;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ labels|safe }},
+      datasets: [{
+        label: 'Total Attendance',
+        data: {{ attendance_counts|safe }},
+        borderColor: '#0d6efd',
+        backgroundColor: 'rgba(13,110,253,0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: '#0d6efd'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: 'Attendance Trend (Last 5 Working Days)' },
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+});
+</script>
+{% endif %}
+
+<!-- Auto-refresh stats every 30s -->
+<script>
+function refreshDashboardCards() {
+  fetch("{% url 'dashboard_stats' %}")
+    .then(response => response.json())
+    .then(data => {
+      document.getElementById("total-staff").textContent = data.total_staff;
+      document.getElementById("todays-attendance").textContent = data.todays_attendance;
+      document.getElementById("signed-in").textContent = data.signed_in;
+      document.getElementById("signed-out").textContent = data.signed_out;
+      if (data.absent_count !== undefined) {
+        document.getElementById("absent-count").textContent = data.absent_count;
+      }
+    })
+    .catch(error => console.error("Error updating stats:", error));
+}
+
+refreshDashboardCards();
+setInterval(refreshDashboardCards, 30000);
+</script>
+
+{% endblock %}
