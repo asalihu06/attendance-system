@@ -106,3 +106,9 @@ CSRF_TRUSTED_ORIGINS = config(
     default='https://attendance-system-zc6w.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
