@@ -20,7 +20,8 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-from records.models import Staff, Attendance
+from records.models import Staff
+from records.models import Attendance
 from records.utils import mark_absent
 from .forms import StaffForm
 

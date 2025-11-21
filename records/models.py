@@ -36,3 +36,11 @@ class Staff(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.staff_id})"
+
+class Attendance(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE)
+    check_in = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20)
+
+    def __str__(self):
+        return f"{self.staff.name} - {self.status}"

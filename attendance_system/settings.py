@@ -1,6 +1,9 @@
 from pathlib import Path
 from decouple import config
-import os 
+import os
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -11,13 +14,19 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-placeholder')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-# Keep your IP addresses
+# Allowed hosts
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
     default='127.0.0.1,localhost,192.168.1.161,192.168.1.149,attendance-system-zc6w.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
+# CSRF trusted origins
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='https://attendance-system-zc6w.onrender.com',
+    cast=lambda v: [s.strip() for s in v.split(',')]
+)
 
 # Application definition
 INSTALLED_APPS = [
@@ -69,6 +78,7 @@ DATABASES = {
         'NAME': config('DATABASE_URL', default=os.path.join(BASE_DIR, 'db.sqlite3')),
     }
 }
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -84,14 +94,11 @@ USE_I18N = True
 USE_TZ = True
 
 # Attendance cutoff
-ATTENDANCE_CUTOFF = (9, 0)
+ATTENDANCE_CUTOFF = (9, 0)  # 9:00 AM
 
 # Static and media files
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -104,13 +111,7 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = 'login'
 
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='https://attendance-system-zc6w.onrender.com',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
-
-# Cloudinary settings
+# Cloudinary configuration
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': config('CLOUD_NAME'),
     'API_KEY': config('CLOUDINARY_API_KEY'),
@@ -118,3 +119,6 @@ CLOUDINARY_STORAGE = {
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Base URL for generating QR codes
+BASE_URL = config('BASE_URL', default='http://127.0.0.1:8000')
