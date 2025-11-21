@@ -1,6 +1,6 @@
 import os
 from io import BytesIO
-from datetime import time
+from datetime import time, datetime
 from django.db import models
 from django.core.files import File
 from decouple import config

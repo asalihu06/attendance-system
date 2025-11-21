@@ -75,7 +75,7 @@ WSGI_APPLICATION = 'attendance_system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': config('DATABASE_URL', default=os.path.join(BASE_DIR, 'db.sqlite3')),
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),  # Absolute path to the DB file
     }
 }
 

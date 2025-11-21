@@ -15,4 +15,4 @@ class StaffAdmin(admin.ModelAdmin):
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ('staff', 'date', 'time_in', 'time_out', 'status')
+    list_display = ('staff', 'check_in', 'status')
