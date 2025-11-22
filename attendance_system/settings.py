@@ -12,12 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-placeholder')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Allowed hosts
 ALLOWED_HOSTS = config(
     'ALLOWED_HOSTS',
-    default='127.0.0.1,localhost,192.168.1.161,192.168.1.149,attendance-system-zc6w.onrender.com',
+    default='127.0.0.1,localhost,192.168.1.161,192.168.1.149,attendance-system-kegd.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
@@ -122,3 +122,11 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # Base URL for generating QR codes
 BASE_URL = config('BASE_URL', default='http://127.0.0.1:8000')
+
+
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_SSL_REDIRECT = False  # Set True if you have HTTPS
+X_FRAME_OPTIONS = 'DENY'

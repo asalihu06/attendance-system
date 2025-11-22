@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import time
 import pytz 
 
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.db.models import Count
@@ -48,9 +49,12 @@ def logout_view(request):
 # ---------- DASHBOARD----------
 
 @login_required
+@login_required
 def dashboard_home(request):
     today = date.today()
-    attendance_records = Attendance.objects.filter(date=today).select_related("staff")
+
+    # Filter Attendance objects by the date part of check_in
+    attendance_records = Attendance.objects.filter(check_in__date=today).select_related("staff")
 
     # Staff attendance summary
     total_staff = Staff.objects.count()
@@ -65,24 +69,23 @@ def dashboard_home(request):
     # Combine attendance + absentees for display
     all_today_records = list(attendance_records)
     for staff in absentees:
+        
         all_today_records.append(
             Attendance(
                 staff=staff,
-                date=today,
-                time_in=None,
-                time_out=None,
+                check_in=None,  
                 status="Absent",
             )
         )
 
-    # (last 5 working days)
+    # Last 5 working days attendance counts
     labels, attendance_counts = [], []
     day_count, i = 0, 0
     while day_count < 5:
         day = today - timedelta(days=i)
         if day.weekday() < 5:  
             labels.append(day.strftime("%b %d"))
-            attendance_counts.append(Attendance.objects.filter(date=day).count())
+            attendance_counts.append(Attendance.objects.filter(check_in__date=day).count())
             day_count += 1
         i += 1
 
@@ -103,6 +106,7 @@ def dashboard_home(request):
 
     return render(request, "dashboard/home.html", context)
 
+
 # ---------- REPORT DOWNLOADS ----------
 
 @login_required
@@ -114,8 +118,8 @@ def download_report_pdf(request):
 
     selected_month = datetime.strptime(month, "%Y-%m")
     records = Attendance.objects.filter(
-        date__year=selected_month.year,
-        date__month=selected_month.month
+        check_in__year=selected_month.year,
+        check_in__month=selected_month.month
     ).select_related("staff")
 
     buffer = BytesIO()
@@ -130,14 +134,14 @@ def download_report_pdf(request):
     elements.append(title)
     elements.append(Spacer(1, 0.3 * inch))
 
-    data = [["Staff Name", "Staff ID", "Date", "Time In", "Time Out", "Status"]]
+    data = [["Staff Name", "Staff ID", "Date", "Check In", "Status"]]
     for r in records:
+        date_display = r.check_in.date().strftime("%b %d, %Y") if r.check_in else "-"
         data.append([
             r.staff.name,
             r.staff.staff_id,
-            r.date.strftime("%b %d, %Y"),
-            r.time_in.strftime("%H:%M") if r.time_in else "-",
-            r.time_out.strftime("%H:%M") if r.time_out else "-",
+            date_display,
+            r.check_in.strftime("%H:%M") if r.check_in else "-",
             r.status or "-"
         ])
 
@@ -156,7 +160,6 @@ def download_report_pdf(request):
 
     buffer.seek(0)
     return FileResponse(buffer, as_attachment=True, filename=f"Attendance_Report_{month}.pdf")
-
 
 @login_required
 def download_report_excel(request):
@@ -240,6 +243,7 @@ def delete_staff(request, pk):
 # ---------- REPORTS ----------
 
 @login_required
+@login_required
 def dashboard_reports(request):
     month = request.GET.get("month")
     summary_data = None
@@ -247,9 +251,10 @@ def dashboard_reports(request):
 
     if month:
         selected_month = datetime.strptime(month, "%Y-%m")
+        # Filter Attendance objects for the selected month
         records = Attendance.objects.filter(
-            date__year=selected_month.year,
-            date__month=selected_month.month
+            check_in__year=selected_month.year,
+            check_in__month=selected_month.month
         )
 
         total_records = records.count()
@@ -257,9 +262,15 @@ def dashboard_reports(request):
         total_late = records.filter(status="Late").count()
         total_absent = records.filter(status="Absent").count()
 
-        daily_counts = records.values("date").annotate(count=Count("id")).order_by("date")
+        # Aggregate daily counts
+        from django.db.models.functions import TruncDate
+        daily_counts = records.annotate(day=TruncDate('check_in')) \
+                              .values('day') \
+                              .annotate(count=Count('id')) \
+                              .order_by('day')
+
         avg_attendance = sum(d["count"] for d in daily_counts) / len(daily_counts) if daily_counts else 0
-        highest_day = max(daily_counts, key=lambda d: d["count"])["date"].strftime("%b %d") if daily_counts else "N/A"
+        highest_day = max(daily_counts, key=lambda d: d["count"])["day"].strftime("%b %d") if daily_counts else "N/A"
 
         summary_data = {
             "month": month,
@@ -280,7 +291,6 @@ def dashboard_reports(request):
         "chart_data": chart_data,
     }
     return render(request, "dashboard/reports.html", context)
-
 
 # ---------- ATTENDANCE MARKING ----------
 
@@ -335,3 +345,5 @@ def dashboard_stats(request):
         "signed_out": signed_out,
     }
     return JsonResponse(data)
+
+
