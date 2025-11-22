@@ -8,11 +8,11 @@ import qrcode
 from PIL import Image
 
 class Staff(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=255)
     staff_id = models.CharField(max_length=50, unique=True)
     department = models.CharField(max_length=100)
     position = models.CharField(max_length=100)
-    qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
+    qr_code_url = models.URLField(blank=True, null=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
