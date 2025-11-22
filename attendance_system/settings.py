@@ -24,7 +24,7 @@ ALLOWED_HOSTS = config(
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='https://attendance-system-zc6w.onrender.com',
+    default='https://attendance-system-kegd.onrender.com',
     cast=lambda v: [s.strip() for s in v.split(',')]
 )
 
