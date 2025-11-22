@@ -75,7 +75,7 @@ WSGI_APPLICATION = 'attendance_system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),  # Absolute path to the DB file
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),  
     }
 }
 
@@ -94,7 +94,7 @@ USE_I18N = True
 USE_TZ = True
 
 # Attendance cutoff
-ATTENDANCE_CUTOFF = (9, 0)  # 9:00 AM
+ATTENDANCE_CUTOFF = (9, 0)  
 
 # Static and media files
 STATIC_URL = '/static/'
@@ -128,5 +128,5 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_SSL_REDIRECT = False  # Set True if you have HTTPS
+SECURE_SSL_REDIRECT = False  
 X_FRAME_OPTIONS = 'DENY'
