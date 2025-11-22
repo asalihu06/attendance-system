@@ -8,6 +8,8 @@ urlpatterns = [
   
     path("mark/<str:staff_id>/", views.mark_attendance, name="mark_attendance"),
 
+     path('generate_qr/<str:staff_id>/', views.generate_qr, name='generate_qr'),
+
 
    path("reports/", views.dashboard_reports, name="dashboard_reports"),
    path("reports/pdf/", views.download_report_pdf, name="download_report_pdf"),

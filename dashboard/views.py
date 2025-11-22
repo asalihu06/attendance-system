@@ -1,19 +1,20 @@
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, time
 from io import BytesIO
 import openpyxl
 import pandas as pd
-from datetime import time
-import pytz 
+import pytz
+import qrcode
 
-
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.db.models import Count
-from django.core.mail import EmailMessage
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+
+import cloudinary.uploader
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -21,14 +22,11 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
-from records.models import Staff
-from records.models import Attendance
-from records.utils import mark_absent
+from records.models import Staff, Attendance
 from .forms import StaffForm
-
+from records.utils import mark_absent
 
 # ---------- AUTH ----------
-
 def login_view(request):
     if request.method == "POST":
         username = request.POST.get("username")
@@ -40,23 +38,17 @@ def login_view(request):
         messages.error(request, "Invalid username or password")
     return render(request, "dashboard/login.html")
 
-
 def logout_view(request):
     logout(request)
     return redirect("login")
 
 
-# ---------- DASHBOARD----------
-
-@login_required
+# ---------- DASHBOARD ----------
 @login_required
 def dashboard_home(request):
     today = date.today()
-
-    # Filter Attendance objects by the date part of check_in
     attendance_records = Attendance.objects.filter(check_in__date=today).select_related("staff")
 
-    # Staff attendance summary
     total_staff = Staff.objects.count()
     present_staff_ids = attendance_records.values_list("staff__id", flat=True)
     absentees = Staff.objects.exclude(id__in=present_staff_ids)
@@ -66,29 +58,21 @@ def dashboard_home(request):
     signed_out_count = attendance_records.filter(status="Signed Out").count()
     absent_count = absentees.count()
 
-    # Combine attendance + absentees for display
     all_today_records = list(attendance_records)
     for staff in absentees:
-        
         all_today_records.append(
-            Attendance(
-                staff=staff,
-                check_in=None,  
-                status="Absent",
-            )
+            Attendance(staff=staff, check_in=None, status="Absent")
         )
 
-    # Last 5 working days attendance counts
     labels, attendance_counts = [], []
     day_count, i = 0, 0
     while day_count < 5:
         day = today - timedelta(days=i)
-        if day.weekday() < 5:  
+        if day.weekday() < 5:
             labels.append(day.strftime("%b %d"))
             attendance_counts.append(Attendance.objects.filter(check_in__date=day).count())
             day_count += 1
         i += 1
-
     labels.reverse()
     attendance_counts.reverse()
 
@@ -103,15 +87,12 @@ def dashboard_home(request):
         "signed_out_count": signed_out_count,
         "absent_count": absent_count,
     }
-
     return render(request, "dashboard/home.html", context)
 
 
 # ---------- REPORT DOWNLOADS ----------
-
 @login_required
 def download_report_pdf(request):
-    """Generate monthly attendance report as PDF."""
     month = request.GET.get("month")
     if not month:
         return HttpResponse("Month not provided", status=400)
@@ -154,7 +135,6 @@ def download_report_pdf(request):
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
     ]))
-
     elements.append(table)
     doc.build(elements)
 
@@ -163,7 +143,6 @@ def download_report_pdf(request):
 
 @login_required
 def download_report_excel(request):
-    """Generate monthly attendance report as Excel."""
     month = request.GET.get("month")
     if not month:
         return HttpResponse("Month not provided", status=400)
@@ -204,22 +183,33 @@ def download_report_excel(request):
 
 
 # ---------- STAFF MANAGEMENT ----------
-
 @login_required
 def staff_list(request):
     staffs = Staff.objects.all().order_by("name")
     return render(request, "dashboard/staff_list.html", {"staffs": staffs})
 
-
 @login_required
 def add_staff(request):
     form = StaffForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        staff = form.save()
+
+        # Generate permanent QR only if not already set
+        if not staff.qr_code_url:
+            qr_data = f"{staff.staff_id}"
+            qr_img = qrcode.make(qr_data)
+
+            buffer = BytesIO()
+            qr_img.save(buffer, format="PNG")
+            buffer.seek(0)
+
+            upload = cloudinary.uploader.upload(buffer, folder="staff_qr")
+            staff.qr_code_url = upload['secure_url']
+            staff.save()
+
         messages.success(request, "Staff added successfully.")
         return redirect("staff_list")
     return render(request, "dashboard/add_staff.html", {"form": form})
-
 
 @login_required
 def edit_staff(request, pk):
@@ -231,7 +221,6 @@ def edit_staff(request, pk):
         return redirect("staff_list")
     return render(request, "dashboard/edit_staff.html", {"form": form})
 
-
 @login_required
 def delete_staff(request, pk):
     staff = get_object_or_404(Staff, pk=pk)
@@ -241,8 +230,6 @@ def delete_staff(request, pk):
 
 
 # ---------- REPORTS ----------
-
-@login_required
 @login_required
 def dashboard_reports(request):
     month = request.GET.get("month")
@@ -251,7 +238,6 @@ def dashboard_reports(request):
 
     if month:
         selected_month = datetime.strptime(month, "%Y-%m")
-        # Filter Attendance objects for the selected month
         records = Attendance.objects.filter(
             check_in__year=selected_month.year,
             check_in__month=selected_month.month
@@ -262,7 +248,6 @@ def dashboard_reports(request):
         total_late = records.filter(status="Late").count()
         total_absent = records.filter(status="Absent").count()
 
-        # Aggregate daily counts
         from django.db.models.functions import TruncDate
         daily_counts = records.annotate(day=TruncDate('check_in')) \
                               .values('day') \
@@ -292,24 +277,21 @@ def dashboard_reports(request):
     }
     return render(request, "dashboard/reports.html", context)
 
-# ---------- ATTENDANCE MARKING ----------
 
+# ---------- ATTENDANCE MARKING ----------
 def mark_attendance(request, staff_id):
     staff = get_object_or_404(Staff, staff_id=staff_id)
     today = timezone.localdate()
     attendance, created = Attendance.objects.get_or_create(staff=staff, date=today)
 
-    
     lagos = pytz.timezone('Africa/Lagos')
     now_dt = datetime.now(lagos)
     now_time = now_dt.time()
 
     if created or not attendance.time_in:
         attendance.time_in = now_time
-
-        cutoff = time(9, 0)  
+        cutoff = time(9, 0)
         attendance.status = 'On Time' if now_time < cutoff else 'Late'
-
         attendance.save()
         message = f"{staff.name} signed in successfully"
 
@@ -325,11 +307,11 @@ def mark_attendance(request, staff_id):
     return render(request, 'dashboard/attendance_confirmation.html', {
         'staff': staff,
         'attendance': attendance,
-        'message': message
+        'message': message,
     })
 
-# ---------- DASHBOARD STATS ----------
 
+# ---------- DASHBOARD STATS ----------
 @login_required
 def dashboard_stats(request):
     today = date.today()
@@ -346,4 +328,34 @@ def dashboard_stats(request):
     }
     return JsonResponse(data)
 
+@login_required
+def generate_qr(request, staff_id):
+    staff = get_object_or_404(Staff, staff_id=staff_id)
 
+    # If staff already has a QR code, just return it
+    if staff.qr_code_url:
+        qr_url = staff.qr_code_url
+    else:
+        # Generate QR code data (attendance check-in URL)
+        qr_data = f"{settings.BASE_URL}/mark_attendance/{staff.staff_id}/"
+
+        # Generate QR code
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Save to in-memory file
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        # Upload to Cloudinary
+        upload_result = cloudinary.uploader.upload(buffer, folder="staff_qr")
+        qr_url = upload_result.get("secure_url")
+
+        # Save URL to staff
+        staff.qr_code_url = qr_url
+        staff.save()
+
+    return render(request, "dashboard/qr_display.html", {"staff": staff, "qr_url": qr_url})
