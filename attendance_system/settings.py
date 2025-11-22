@@ -15,11 +15,11 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-placeholder')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 # Allowed hosts
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='127.0.0.1,localhost,192.168.1.161,192.168.1.149,attendance-system-kegd.onrender.com',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'attendance-system-kegd.onrender.com',
+]
 
 # CSRF trusted origins
 CSRF_TRUSTED_ORIGINS = config(
